@@ -1,0 +1,222 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Speedometer - Auto Reindex</title>
+    <style>
+        :root {
+            --bg: #0f0f0f;
+            --neon-green: #00ff88;
+            --neon-red: #ff4444;
+        }
+
+        body {
+            margin: 0;
+            height: 100vh;
+            background-color: var(--bg);
+            color: white;
+            font-family: 'Segoe UI', sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: space-between;
+            padding: 40px 0;
+            user-select: none;
+        }
+
+        /* Vùng xóa */
+        #delete-zone {
+            width: 80px;
+            height: 80px;
+            border: 2px dashed var(--neon-red);
+            border-radius: 50%;
+            display: none; 
+            align-items: center;
+            justify-content: center;
+            color: var(--neon-red);
+            font-size: 2.5rem;
+            transition: all 0.3s;
+        }
+
+        #delete-zone.drag-over {
+            background: rgba(255, 68, 68, 0.3);
+            transform: scale(1.2);
+            box-shadow: 0 0 20px var(--neon-red);
+        }
+
+        /* Danh sách nút */
+        #checkpoint-container {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 15px;
+            justify-content: center;
+            padding: 20px;
+            min-height: 100px;
+        }
+
+        .btn-checkpoint {
+            width: 60px;
+            height: 60px;
+            border-radius: 50%;
+            border: 2px solid #444;
+            background: #222;
+            color: white;
+            font-weight: bold;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.2rem;
+            transition: all 0.2s;
+            touch-action: none;
+        }
+
+        .btn-checkpoint.active {
+            background-color: var(--neon-green);
+            border-color: var(--neon-green);
+            color: #000;
+            box-shadow: 0 0 20px var(--neon-green);
+        }
+
+        .shaking {
+            animation: shake 0.2s infinite;
+            border-color: var(--neon-red);
+        }
+
+        @keyframes shake {
+            0% { transform: rotate(0deg); }
+            25% { transform: rotate(3deg); }
+            75% { transform: rotate(-3deg); }
+            100% { transform: rotate(0deg); }
+        }
+
+        .btn-add {
+            background: #333;
+            border: 2px dashed #666;
+            font-size: 1.5rem;
+        }
+
+        /* Đồng hồ */
+        .speedometer {
+            width: 200px;
+            height: 200px;
+            border-radius: 50%;
+            border: 8px solid #333;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            background: radial-gradient(circle, #222, #000);
+        }
+        .speed-value { font-size: 3rem; font-weight: 800; }
+        .unit { color: #666; font-size: 0.8rem; }
+    </style>
+</head>
+<body>
+
+    <div id="delete-zone" ondragover="event.preventDefault()" ondrop="dropToDelete(event)">-</div>
+
+    <div id="checkpoint-container">
+        <button class="btn-checkpoint node" 
+                onmousedown="startHold(this)" 
+                onmouseup="endHold()" 
+                onclick="toggleNode(this)">A</button>
+        
+        <button class="btn-checkpoint btn-add" onclick="addNewNode()">+</button>
+    </div>
+
+    <div class="speedometer">
+        <div class="speed-value" id="speed-num">0</div>
+        <div class="unit">km/h</div>
+    </div>
+
+    <script>
+        let holdTimer;
+        let draggedElement = null;
+
+        // 1. Cập nhật lại nhãn chữ cái (Re-index)
+        function reindexNodes() {
+            const nodes = document.querySelectorAll('.btn-checkpoint.node');
+            nodes.forEach((node, index) => {
+                node.innerText = String.fromCharCode(65 + index); // 65 là 'A'
+            });
+        }
+
+        // 2. Bật/Tắt nút (Chỉ 1 nút sáng)
+        function toggleNode(el) {
+            if (el.classList.contains('shaking')) return;
+
+            const wasActive = el.classList.contains('active');
+            document.querySelectorAll('.btn-checkpoint.node').forEach(btn => btn.classList.remove('active'));
+            
+            if (!wasActive) {
+                el.classList.add('active');
+            }
+        }
+
+        // 3. Nhấn giữ 1s để xóa
+        function startHold(el) {
+            holdTimer = setTimeout(() => {
+                el.classList.add('shaking');
+                el.setAttribute('draggable', 'true');
+                document.getElementById('delete-zone').style.display = 'flex';
+                
+                el.ondragstart = (e) => {
+                    draggedElement = el;
+                    document.getElementById('delete-zone').classList.add('drag-over');
+                };
+            }, 1000);
+        }
+
+        function endHold() {
+            clearTimeout(holdTimer);
+        }
+
+        // 4. Thả vào dấu "-" để xóa và dồn nút
+        function dropToDelete(e) {
+            e.preventDefault();
+            if (draggedElement) {
+                draggedElement.remove();
+                draggedElement = null;
+                document.getElementById('delete-zone').style.display = 'none';
+                reindexNodes(); // Cập nhật lại thứ tự A, B, C...
+            }
+        }
+
+        // 5. Thêm nút mới
+        function addNewNode() {
+            const nodes = document.querySelectorAll('.btn-checkpoint.node');
+            if (nodes.length >= 26) return; // Giới hạn bảng chữ cái
+
+            const newBtn = document.createElement('button');
+            newBtn.className = 'btn-checkpoint node';
+            
+            newBtn.onmousedown = () => startHold(newBtn);
+            newBtn.onmouseup = endHold;
+            newBtn.onclick = () => toggleNode(newBtn);
+            
+            const container = document.getElementById('checkpoint-container');
+            container.insertBefore(newBtn, container.lastElementChild);
+            
+            reindexNodes(); // Cập nhật nhãn cho nút mới
+        }
+
+        // Click ra ngoài để hủy chế độ xóa
+        window.onmousedown = (e) => {
+            if (!e.target.classList.contains('btn-checkpoint')) {
+                document.querySelectorAll('.btn-checkpoint.node').forEach(btn => {
+                    btn.classList.remove('shaking');
+                    btn.setAttribute('draggable', 'false');
+                });
+                document.getElementById('delete-zone').style.display = 'none';
+            }
+        };
+
+        // Giả lập tốc độ
+        setInterval(() => {
+            document.getElementById('speed-num').innerText = Math.floor(Math.random() * 5) + 25;
+        }, 1000);
+    </script>
+</body>
+</html>
